@@ -29,7 +29,6 @@ def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
 
 
 class Bird:
-
     delta = {  # ここは def の外側！
         pg.K_UP: (0, -5),
         pg.K_DOWN: (0, +5),
@@ -51,11 +50,13 @@ class Bird:
         (+5, +5): pg.transform.rotozoom(img, -45, 0.9), # 右下
     } 
 
+
     def __init__(self, xy: tuple[int, int]):
         self.img = __class__.imgs[(+5, 0)]
         self.rct: pg.Rect = self.img.get_rect()
         self.rct.center = xy
         self.dire = (+5, 0)  # インスタンス変数として向きを保持
+
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -102,10 +103,12 @@ class Beam:
         self.rct.centerx = bird.rct.centerx + bird.rct.width * self.vx / 5
         self.rct.centery = bird.rct.centery + bird.rct.height * self.vy / 5
 
+
     def update(self, screen: pg.Surface):
         # 画面外に出るまで移動
         self.rct.move_ip(self.vx, self.vy)
         screen.blit(self.img, self.rct)
+
 
 class Bomb:
     """
@@ -124,6 +127,7 @@ class Bomb:
         self.rct.center = random.randint(0, WIDTH), random.randint(0, HEIGHT)
         self.vx, self.vy = +5, +5
 
+
     def update(self, screen: pg.Surface):
         """
         爆弾を速度ベクトルself.vx, self.vyに基づき移動させる
@@ -137,6 +141,27 @@ class Bomb:
         self.rct.move_ip(self.vx, self.vy)
         screen.blit(self.img, self.rct)
 
+class Score:
+    """
+    打ち落とした爆弾の数を表示するスコアに関するクラス
+    """
+    def __init__(self):
+        self.fonto = pg.font.SysFont(None, 30)
+        self.color = (0, 0, 255) # 青
+        self.score = 0
+        self.img = self.fonto.render("Score", 0, self.color)
+        self.rct = self.img.get_rect()
+        # 画面左下(横座標：100，縦座標：画面下部から50)
+        self.rct.center = (100, HEIGHT - 50)
+
+    def update(self, screen: pg.Surface):
+        """
+        現在のスコアを表示させる文字列Surfaceを生成し、スクリーンにblitする
+        """
+        self.img = self.fonto.render(f"Score: {self.score}", True, self.color)
+        screen.blit(self.img, self.rct)
+
+
         
 def main():
     pg.display.set_caption("たたかえ！こうかとん")
@@ -148,6 +173,7 @@ def main():
     beams = []  # ビームを複数管理するリスト
     clock = pg.time.Clock()
     tmr = 0
+    score = Score()
     
     while True:
         for event in pg.event.get():
@@ -168,7 +194,7 @@ def main():
                     screen.blit(txt, [WIDTH//2-150, HEIGHT//2-50])
                     bird.change_img(8, screen)
                     pg.display.update()
-                    time.sleep(1)
+                    #  .sleep(1)
                     return        
 
         # 2. ビームと爆弾の衝突判定（二重ループ）
@@ -176,6 +202,7 @@ def main():
             for i, bomb in enumerate(bombs):
                 if beam is not None and bomb is not None:
                     if beam.rct.colliderect(bomb.rct):
+                        score.score += 1
                         beams[j] = None  # 当たったビームを消す準備
                         bombs[i] = None  # 当たった爆弾を消す準備
                         bird.change_img(6, screen) # 喜びエフェクト
@@ -193,6 +220,8 @@ def main():
             
         for bomb in bombs:  # 全ての爆弾を更新・描画
             bomb.update(screen)
+
+        score.update(screen)
 
         pg.display.update()
         tmr += 1

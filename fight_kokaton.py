@@ -2,6 +2,7 @@ import os
 import random
 import sys
 import time
+import math
 import pygame as pg
 
 
@@ -28,52 +29,43 @@ def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
 
 
 class Bird:
-    """
-    ゲームキャラクター（こうかとん）に関するクラス
-    """
-    delta = {  # 押下キーと移動量の辞書
+
+    delta = {  # ここは def の外側！
         pg.K_UP: (0, -5),
         pg.K_DOWN: (0, +5),
         pg.K_LEFT: (-5, 0),
         pg.K_RIGHT: (+5, 0),
     }
+    
+    # 画像の読み込み処理も def の外側！
     img0 = pg.transform.rotozoom(pg.image.load("fig/3.png"), 0, 0.9)
-    img = pg.transform.flip(img0, True, False)  # デフォルトのこうかとん（右向き）
-    imgs = {  # 0度から反時計回りに定義
-        (+5, 0): img,  # 右
-        (+5, -5): pg.transform.rotozoom(img, 45, 0.9),  # 右上
-        (0, -5): pg.transform.rotozoom(img, 90, 0.9),  # 上
-        (-5, -5): pg.transform.rotozoom(img0, -45, 0.9),  # 左上
+    img = pg.transform.flip(img0, True, False)
+    imgs = { 
+        (+5, 0): img,
+        (+5, -5): pg.transform.rotozoom(img, 45, 0.9),# 右上
+        (0, -5): pg.transform.rotozoom(img, 90, 0.9),   # 上
+        (-5, -5): pg.transform.rotozoom(img0, -45, 0.9), # 左上
         (-5, 0): img0,  # 左
-        (-5, +5): pg.transform.rotozoom(img0, 45, 0.9),  # 左下
+        (-5, +5): pg.transform.rotozoom(img0, 45, 0.9), # 左下
         (0, +5): pg.transform.rotozoom(img, -90, 0.9),  # 下
-        (+5, +5): pg.transform.rotozoom(img, -45, 0.9),  # 右下
-    }
+        (+5, +5): pg.transform.rotozoom(img, -45, 0.9), # 右下
+    } 
 
     def __init__(self, xy: tuple[int, int]):
-        """
-        こうかとん画像Surfaceを生成する
-        引数 xy：こうかとん画像の初期位置座標タプル
-        """
         self.img = __class__.imgs[(+5, 0)]
         self.rct: pg.Rect = self.img.get_rect()
         self.rct.center = xy
+        self.dire = (+5, 0)  # インスタンス変数として向きを保持
 
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
-        引数1 num：こうかとん画像ファイル名の番号
-        引数2 screen：画面Surface
         """
         self.img = pg.transform.rotozoom(pg.image.load(f"fig/{num}.png"), 0, 0.9)
         screen.blit(self.img, self.rct)
 
+
     def update(self, key_lst: list[bool], screen: pg.Surface):
-        """
-        押下キーに応じてこうかとんを移動させる
-        引数1 key_lst：押下キーの真理値リスト
-        引数2 screen：画面Surface
-        """
         sum_mv = [0, 0]
         for k, mv in __class__.delta.items():
             if key_lst[k]:
@@ -84,6 +76,7 @@ class Bird:
             self.rct.move_ip(-sum_mv[0], -sum_mv[1])
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.img = __class__.imgs[tuple(sum_mv)]
+            self.dire = tuple(sum_mv)  # 向きを更新
         screen.blit(self.img, self.rct)
 
 
@@ -91,31 +84,28 @@ class Beam:
     """
     こうかとんが放つビームに関するクラス
     """
-    def __init__(self, bird:"Bird"):
+    def __init__(self, bird: "Bird"):
         """
-        ビーム画像Surfaceを生成する
-        引数 bird：ビームを放つこうかとん（Birdインスタンス）
+        こうかとんの向きに応じてビームを生成する
         """
-        self.img = pg.image.load(f"fig/beam.png")
+        self.vx, self.vy = bird.dire  # birdインスタンスのdireを参照
+        
+        # 角度計算：atan2(y, x) だが画面座標系(y下向き)なので-vyとする
+        theta = math.atan2(-self.vy, self.vx)
+        angle = math.degrees(theta)
+        
+        # 画像の回転と読み込み
+        self.img = pg.transform.rotozoom(pg.image.load("fig/beam.png"), angle, 1.0)
         self.rct = self.img.get_rect()
-        self.rct.centery = bird.rct.centery # ビームの中心縦座標　=　こうかとんの中心縦座標
-        self.rct.left = bird.rct.right # ビームの左座標 = こうかとんの右座標
-        self.vx, self.vy = +5, 0
-
-
-        # self.img = __class__.imgs[(+5, 0)]
-        # self.rct: pg.Rect = self.img.get_rect()
-        # self.rct.center = xy
+        
+        # 初期配置：こうかとんの中心 + (サイズ * 向き/5)
+        self.rct.centerx = bird.rct.centerx + bird.rct.width * self.vx / 5
+        self.rct.centery = bird.rct.centery + bird.rct.height * self.vy / 5
 
     def update(self, screen: pg.Surface):
-        """
-        ビームを速度ベクトルself.vx, self.vyに基づき移動させる
-        引数 screen：画面Surface
-        """
-        if check_bound(self.rct) == (True, True):
-            self.rct.move_ip(self.vx, self.vy)
-            screen.blit(self.img, self.rct)    
-
+        # 画面外に出るまで移動
+        self.rct.move_ip(self.vx, self.vy)
+        screen.blit(self.img, self.rct)
 
 class Bomb:
     """

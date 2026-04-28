@@ -178,13 +178,18 @@ def main():
                 if beam.rct.colliderect(bomb.rct): #練習2：爆弾とビームの衝突判定
                     beam = None
                     bomb = None
+                    bird.change_img(6, screen)
+                    pg.display.update()
+                    time.sleep(1)
+                    return
 
 
         key_lst = pg.key.get_pressed()
         bird.update(key_lst, screen)
         if beam is not None:
-              beam.update(screen)   
-        bomb.update(screen)
+            beam.update(screen)   
+        if bomb is not None:
+            bomb.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
